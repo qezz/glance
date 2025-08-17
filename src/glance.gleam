@@ -294,6 +294,7 @@ pub type CustomType {
     opaque_: Bool,
     parameters: List(String),
     variants: List(Variant),
+    comments: List(String),
   )
 }
 
@@ -336,10 +337,10 @@ pub type Error {
 
 pub fn module(src: String) -> Result(Module, Error) {
   glexer.new(src)
-  |> glexer.discard_comments
+  // |> glexer.discard_comments
   |> glexer.discard_whitespace
   |> glexer.lex
-  |> slurp(Module([], [], [], [], []), [], _)
+  |> slurp(Module([], [], [], [], []), [], _, [])
 }
 
 fn push_constant(
@@ -390,6 +391,10 @@ fn push_type_alias(
 
 fn push_variant(custom_type: CustomType, variant: Variant) -> CustomType {
   CustomType(..custom_type, variants: [variant, ..custom_type.variants])
+}
+
+pub fn push_comment(custom_type: CustomType, comment: String) -> CustomType {
+  CustomType(..custom_type, comments: [comment, ..custom_type.comments])
 }
 
 fn expect(
@@ -468,50 +473,75 @@ fn slurp(
   module: Module,
   attributes: List(Attribute),
   tokens: Tokens,
+  comments: Tokens,
 ) -> Result(Module, Error) {
   case tokens {
     [#(t.At, _), ..tokens] -> {
       use #(attribute, tokens) <- result.try(attribute(tokens))
-      slurp(module, [attribute, ..attributes], tokens)
+      slurp(module, [attribute, ..attributes], tokens, comments)
     }
 
     [#(t.Import, P(start)), ..tokens] -> {
       let result = import_statement(module, attributes, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, comments)
     }
 
     [#(t.Pub, P(start)), #(t.Type, _), ..tokens] -> {
       let result =
-        type_definition(module, attributes, Public, False, tokens, start)
+        type_definition(
+          module,
+          attributes,
+          Public,
+          False,
+          comments,
+          tokens,
+          start,
+        )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Pub, P(start)), #(t.Opaque, _), #(t.Type, _), ..tokens] -> {
       let result =
-        type_definition(module, attributes, Public, True, tokens, start)
+        type_definition(
+          module,
+          attributes,
+          Public,
+          True,
+          comments,
+          tokens,
+          start,
+        )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Type, P(start)), ..tokens] -> {
       let result =
-        type_definition(module, attributes, Private, False, tokens, start)
+        type_definition(
+          module,
+          attributes,
+          Private,
+          False,
+          comments,
+          tokens,
+          start,
+        )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Pub, P(start)), #(t.Const, _), ..tokens] -> {
       let result = const_definition(module, attributes, Public, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Const, P(start)), ..tokens] -> {
       let result = const_definition(module, attributes, Private, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Pub, start), #(t.Fn, _), #(t.Name(name), _), ..tokens] -> {
@@ -519,7 +549,7 @@ fn slurp(
       let result =
         function_definition(module, attributes, Public, name, start, tokens)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
     }
 
     [#(t.Fn, start), #(t.Name(name), _), ..tokens] -> {
@@ -527,11 +557,25 @@ fn slurp(
       let result =
         function_definition(module, attributes, Private, name, start, tokens)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens)
+      slurp(module, [], tokens, [])
+    }
+
+    [#(t.CommentNormal(comment), P(start)), ..tokens] -> {
+      // Aggregating comments and passing them the next slurp invocation.
+      // The comments will be consumed by the first valid definition.
+      slurp(
+        module,
+        [],
+        tokens,
+        list.reverse([#(t.CommentNormal(comment), P(start)), ..comments]),
+      )
     }
 
     [] -> Ok(module)
-    tokens -> unexpected_error(tokens)
+    tokens -> {
+      echo tokens
+      unexpected_error(tokens)
+    }
   }
 }
 
@@ -1900,11 +1944,22 @@ fn comma_delimited(
   }
 }
 
+pub fn comment_tokens_to_strings(tokens: Tokens) -> List(String) {
+  tokens
+  |> list.filter_map(fn(token) {
+    case token {
+      #(t.CommentNormal(comment), P(_pos)) -> Ok(comment)
+      _ -> Error(Nil)
+    }
+  })
+}
+
 fn type_definition(
   module: Module,
   attributes: List(Attribute),
   publicity: Publicity,
   opaque_: Bool,
+  comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
@@ -1936,13 +1991,23 @@ fn type_definition(
         parameters,
         publicity,
         opaque_,
+        comments,
         tokens,
         start,
       )
     }
     _ -> {
       let span = Span(start, end)
-      let ct = CustomType(span, name_value, publicity, opaque_, parameters, [])
+      let ct =
+        CustomType(
+          span,
+          name_value,
+          publicity,
+          opaque_,
+          parameters,
+          [],
+          comment_tokens_to_strings(comments),
+        )
       let module = push_custom_type(module, attributes, ct)
       Ok(#(module, tokens))
     }
@@ -2042,11 +2107,21 @@ fn custom_type(
   parameters: List(String),
   publicity: Publicity,
   opaque_: Bool,
+  comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
   // <variant>.. }
-  let ct = CustomType(Span(0, 0), name, publicity, opaque_, parameters, [])
+  let ct =
+    CustomType(
+      Span(0, 0),
+      name,
+      publicity,
+      opaque_,
+      parameters,
+      [],
+      comment_tokens_to_strings(comments),
+    )
   use #(ct, end, tokens) <- result.try(variants(ct, tokens))
   let ct = CustomType(..ct, location: Span(start, end))
 
