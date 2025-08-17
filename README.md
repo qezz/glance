@@ -38,7 +38,7 @@ pub fn main() {
 ```
 
 This program print this to the console:
-  
+
 ```gleam
 [
   Definition(
