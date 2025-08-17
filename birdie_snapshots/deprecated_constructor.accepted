@@ -45,6 +45,7 @@ Module(
           Variant("Sha224", [], []),
           Variant("Sha512", [], []),
         ],
+        [],
       ),
     ),
   ],

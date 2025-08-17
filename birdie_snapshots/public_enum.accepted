@@ -28,6 +28,7 @@ Module(
           Variant("South", [], []),
           Variant("West", [], []),
         ],
+        [" comment"],
       ),
     ),
   ],
