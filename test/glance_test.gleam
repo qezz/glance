@@ -134,7 +134,7 @@ pub fn parse_self_test() {
 pub fn empty_test() {
   ""
   |> glance.module
-  |> should.equal(Ok(glance.Module([], [], [], [], [])))
+  |> should.equal(Ok(glance.Module([], [], [], [], [], [])))
 }
 
 pub fn public_enum_test() {
@@ -256,6 +256,29 @@ pub fn comment_discarding_test() {
   }"
   |> to_snapshot
   |> birdie.snap(title: "comment_discarding")
+}
+
+pub fn comments_inbetween_type_decaration_test() {
+  "pub
+  // comment
+  type
+  // comment
+  T{
+  }"
+  |> to_snapshot
+  |> birdie.snap(title: "comments_inbetween_type_decaration")
+}
+
+pub fn comments_for_generic_type_test() {
+  "pub type T(
+    // this is k
+    k,
+    // this is v,
+    v
+  ) {
+  }"
+  |> to_snapshot
+  |> birdie.snap(title: "comment_for_generic_type_test")
 }
 
 pub fn alias_variable_test() {

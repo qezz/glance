@@ -18,22 +18,7 @@ pub type
 
 ---------------------------
 
-Module(
-  [],
-  [
-    Definition(
-      [],
-      CustomType(
-        Span(0, 117),
-        "Spooky",
-        Public,
-        False,
-        ["t", "u"],
-        [Variant("Spooky", [], [])],
-      ),
-    ),
-  ],
-  [],
-  [],
-  [],
-)
+Error(UnexpectedToken(
+  CommentNormal(" Comment!"),
+  Position(13),
+))

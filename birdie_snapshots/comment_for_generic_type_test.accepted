@@ -1,0 +1,20 @@
+---
+version: 1.2.7
+title: comment_for_generic_type_test
+file: ./test/glance_test.gleam
+test_name: comments_for_generic_type_test
+---
+pub type T(
+    // this is k
+    k,
+    // this is v,
+    v
+  ) {
+  }
+
+---------------------------
+
+Error(UnexpectedToken(
+  CommentNormal(" this is k"),
+  Position(16),
+))

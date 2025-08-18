@@ -34,7 +34,13 @@ Module(
             "Nil",
           )),
         ],
+        [" Comment"],
+        [
+          " Module comment",
+          " Doc comment",
+        ],
       ),
     ),
   ],
+  [],
 )
