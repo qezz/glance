@@ -1040,7 +1040,7 @@ pub fn discard_list_rest_test() {
 }
 
 pub fn comments_test() {
-  "/// Module comment
+  "//// Module comment
 
 // Comment
 
