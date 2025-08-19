@@ -301,6 +301,25 @@ pub fn comments_order_test() {
   |> birdie.snap(title: "comments_order_test")
 }
 
+pub fn comments_extra_test() {
+  "
+  /// Cardinal is a type
+
+  // hey it's a comment
+  /// doc comment in the middle
+  // another line
+  pub type Cardinal {
+    // this a comment for the North variant
+    North
+    East
+    South
+    West
+  }
+"
+  |> to_snapshot
+  |> birdie.snap(title: "comments_extra")
+}
+
 pub fn alias_variable_test() {
   "pub type X = a"
   |> to_snapshot

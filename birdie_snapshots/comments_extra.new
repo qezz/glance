@@ -1,0 +1,80 @@
+---
+version: 1.2.7
+title: comments_extra
+---
+
+  /// Cardinal is a type
+
+  // hey it's a comment
+  /// doc comment in the middle
+  // another line
+  pub type Cardinal {
+    // this a comment for the North variant
+    North
+    East
+    South
+    West
+  }
+
+
+---------------------------
+
+Module(
+  [],
+  [
+    Definition(
+      [],
+      CustomType(
+        Span(103, 208),
+        "Cardinal",
+        Public,
+        False,
+        [],
+        [
+          Variant(
+            "North",
+            [],
+            [],
+            [
+              " this a comment for the North variant",
+            ],
+            [],
+          ),
+          Variant(
+            "East",
+            [],
+            [],
+            [],
+            [],
+          ),
+          Variant(
+            "South",
+            [],
+            [],
+            [],
+            [],
+          ),
+          Variant(
+            "West",
+            [],
+            [],
+            [],
+            [],
+          ),
+        ],
+        [
+          " hey it's a comment",
+          " another line",
+        ],
+        [
+          " Cardinal is a type",
+          " doc comment in the middle",
+        ],
+      ),
+    ),
+  ],
+  [],
+  [],
+  [],
+  [],
+)
