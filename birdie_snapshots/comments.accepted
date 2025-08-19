@@ -4,7 +4,7 @@ title: comments
 file: ./test/glance_test.gleam
 test_name: comments_test
 ---
-/// Module comment
+//// Module comment
 
 // Comment
 
@@ -23,24 +23,21 @@ Module(
     Definition(
       [],
       Function(
-        Span(48, 69),
+        Span(49, 70),
         "main",
         Public,
         [],
         None,
         [
           Expression(Variable(
-            Span(64, 67),
+            Span(65, 68),
             "Nil",
           )),
         ],
         [" Comment"],
-        [
-          " Module comment",
-          " Doc comment",
-        ],
+        [" Doc comment"],
       ),
     ),
   ],
-  [],
+  [" Module comment"],
 )
