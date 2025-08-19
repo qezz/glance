@@ -76,8 +76,8 @@ This program print this to the console:
         " another line asht"
       ],
       comments_doc: [
-        " doc comment in the middle",
         " Cardinal is a type"
+        " doc comment in the middle",
       ]
     ),
   ),
