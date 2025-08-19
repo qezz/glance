@@ -1,0 +1,58 @@
+---
+version: 1.2.7
+title: comments_order_test
+file: ./test/glance_test.gleam
+test_name: comments_order_test
+---
+
+  //// module comment 1
+  //// module comment 2
+
+  // regular comment 1
+  /// doc comment 1
+  // regular comment 2
+  /// doc comment 2
+  // regular comment 3
+  /// doc comment 3
+
+  pub type T{}
+
+  //// module comment 3
+  
+
+---------------------------
+
+Module(
+  [],
+  [
+    Definition(
+      [],
+      CustomType(
+        Span(182, 194),
+        "T",
+        Public,
+        False,
+        [],
+        [],
+        [
+          " regular comment 1",
+          " regular comment 2",
+          " regular comment 3",
+        ],
+        [
+          " doc comment 1",
+          " doc comment 2",
+          " doc comment 3",
+        ],
+      ),
+    ),
+  ],
+  [],
+  [],
+  [],
+  [
+    " module comment 1",
+    " module comment 2",
+    " module comment 3",
+  ],
+)

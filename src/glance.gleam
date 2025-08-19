@@ -24,6 +24,7 @@ pub type Module {
     type_aliases: List(Definition(TypeAlias)),
     constants: List(Definition(Constant)),
     functions: List(Definition(Function)),
+    comments: List(String),
   )
 }
 
@@ -35,6 +36,8 @@ pub type Function {
     parameters: List(FunctionParameter),
     return: Option(Type),
     body: List(Statement),
+    comments: List(String),
+    doc_comments: List(String),
   )
 }
 
@@ -295,11 +298,18 @@ pub type CustomType {
     parameters: List(String),
     variants: List(Variant),
     comments: List(String),
+    doc_comments: List(String),
   )
 }
 
 pub type Variant {
-  Variant(name: String, fields: List(VariantField), attributes: List(Attribute))
+  Variant(
+    name: String,
+    fields: List(VariantField),
+    attributes: List(Attribute),
+    comments: List(String),
+    comments_doc: List(String),
+  )
 }
 
 pub type RecordUpdateField(t) {
@@ -337,10 +347,13 @@ pub type Error {
 
 pub fn module(src: String) -> Result(Module, Error) {
   glexer.new(src)
-  // |> glexer.discard_comments
   |> glexer.discard_whitespace
   |> glexer.lex
-  |> slurp(Module([], [], [], [], []), [], _, [])
+  |> slurp(Module([], [], [], [], [], []), [], _, [], [])
+}
+
+pub fn push_module_comment(module: Module, comment: String) -> Module {
+  Module(..module, comments: [comment, ..module.comments])
 }
 
 fn push_constant(
@@ -391,10 +404,6 @@ fn push_type_alias(
 
 fn push_variant(custom_type: CustomType, variant: Variant) -> CustomType {
   CustomType(..custom_type, variants: [variant, ..custom_type.variants])
-}
-
-pub fn push_comment(custom_type: CustomType, comment: String) -> CustomType {
-  CustomType(..custom_type, comments: [comment, ..custom_type.comments])
 }
 
 fn expect(
@@ -473,18 +482,25 @@ fn slurp(
   module: Module,
   attributes: List(Attribute),
   tokens: Tokens,
-  comments: Tokens,
+  normal_comments: Tokens,
+  doc_comments: Tokens,
 ) -> Result(Module, Error) {
   case tokens {
     [#(t.At, _), ..tokens] -> {
       use #(attribute, tokens) <- result.try(attribute(tokens))
-      slurp(module, [attribute, ..attributes], tokens, comments)
+      slurp(
+        module,
+        [attribute, ..attributes],
+        tokens,
+        normal_comments,
+        doc_comments,
+      )
     }
 
     [#(t.Import, P(start)), ..tokens] -> {
       let result = import_statement(module, attributes, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, comments)
+      slurp(module, [], tokens, normal_comments, doc_comments)
     }
 
     [#(t.Pub, P(start)), #(t.Type, _), ..tokens] -> {
@@ -494,12 +510,13 @@ fn slurp(
           attributes,
           Public,
           False,
-          comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, P(start)), #(t.Opaque, _), #(t.Type, _), ..tokens] -> {
@@ -509,12 +526,13 @@ fn slurp(
           attributes,
           Public,
           True,
-          comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Type, P(start)), ..tokens] -> {
@@ -524,40 +542,59 @@ fn slurp(
           attributes,
           Private,
           False,
-          comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, P(start)), #(t.Const, _), ..tokens] -> {
       let result = const_definition(module, attributes, Public, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Const, P(start)), ..tokens] -> {
       let result = const_definition(module, attributes, Private, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, start), #(t.Fn, _), #(t.Name(name), _), ..tokens] -> {
       let P(start) = start
       let result =
-        function_definition(module, attributes, Public, name, start, tokens)
+        function_definition(
+          module,
+          attributes,
+          Public,
+          name,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
+          start,
+          tokens,
+        )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Fn, start), #(t.Name(name), _), ..tokens] -> {
       let P(start) = start
       let result =
-        function_definition(module, attributes, Private, name, start, tokens)
+        function_definition(
+          module,
+          attributes,
+          Private,
+          name,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
+          start,
+          tokens,
+        )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.CommentNormal(comment), P(start)), ..tokens] -> {
@@ -567,16 +604,42 @@ fn slurp(
         module,
         [],
         tokens,
-        list.reverse([#(t.CommentNormal(comment), P(start)), ..comments]),
+        [#(t.CommentNormal(comment), P(start)), ..normal_comments],
+        doc_comments,
       )
     }
 
-    [] -> Ok(module)
+    [#(t.CommentDoc(comment), P(start)), ..tokens] -> {
+      // Aggregating comments and passing them the next slurp invocation.
+      // The comments will be consumed by the first valid definition.
+      slurp(module, [], tokens, normal_comments, [
+        #(t.CommentDoc(comment), P(start)),
+        ..doc_comments
+      ])
+    }
+
+    [#(t.CommentModule(comment), P(_start)), ..tokens] -> {
+      // Module-level comments are consumed immediatelly, and don't affect
+      // the aggregated regular and doc comments.
+      let result = module_comment(module, comment, tokens)
+      use #(module, tokens) <- result.try(result)
+      slurp(module, [], tokens, [], [])
+    }
+
+    [] -> Ok(Module(..module, comments: list.reverse(module.comments)))
     tokens -> {
-      echo tokens
       unexpected_error(tokens)
     }
   }
+}
+
+fn module_comment(
+  module: Module,
+  comment: String,
+  tokens: Tokens,
+) -> Result(#(Module, Tokens), Error) {
+  let module = push_module_comment(module, comment)
+  Ok(#(module, tokens))
 }
 
 fn import_statement(
@@ -793,6 +856,8 @@ fn function_definition(
   attributes: List(Attribute),
   publicity: Publicity,
   name: String,
+  comments: Tokens,
+  doc_comments: Tokens,
   start: Int,
   tokens: Tokens,
 ) -> Result(#(Module, Tokens), Error) {
@@ -808,13 +873,22 @@ fn function_definition(
 
   // The function body
   use #(body, end, tokens) <- result.try(case tokens {
-    [#(t.LeftBrace, _), ..tokens] -> statements([], tokens)
+    [#(t.LeftBrace, _), ..tokens] -> statements([], tokens, [])
     _ -> Ok(#([], end, tokens))
   })
 
   let location = Span(start, end)
   let function =
-    Function(location, name, publicity, parameters, return_type, body)
+    Function(
+      location,
+      name,
+      publicity,
+      parameters,
+      return_type,
+      body,
+      comment_normal_tokens_to_strings(comments),
+      comment_doc_tokens_to_strings(doc_comments),
+    )
   let module = push_function(module, attributes, function)
   Ok(#(module, tokens))
 }
@@ -832,16 +906,21 @@ fn optional_return_annotation(
   }
 }
 
+// NOTE: comments inside the function are discarded
 fn statements(
   acc: List(Statement),
   tokens: Tokens,
+  comments: List(String),
 ) -> Result(#(List(Statement), Int, Tokens), Error) {
   case tokens {
     [#(t.RightBrace, P(end)), ..tokens] ->
       Ok(#(list.reverse(acc), end + 1, tokens))
+    [#(t.CommentNormal(comment), P(_)), ..tokens] -> {
+      statements(acc, tokens, [comment, ..comments])
+    }
     _ -> {
       use #(statement, tokens) <- result.try(statement(tokens))
-      statements([statement, ..acc], tokens)
+      statements([statement, ..acc], tokens, [])
     }
   }
 }
@@ -1152,6 +1231,9 @@ fn expression_loop(
 ) -> Result(#(Expression, Tokens), Error) {
   use #(expression, tokens) <- result.try(expression_unit(tokens, context))
 
+  // FIXME: feels like a hack. Should probably re-trigger the expression_loop()
+  use #(_, tokens) <- result.try(comments_normal_([], tokens))
+
   case expression {
     None -> unexpected_error(tokens)
     Some(e) -> {
@@ -1301,7 +1383,7 @@ fn expression_unit(
     }
 
     [#(t.LeftBrace, P(start)), ..tokens] -> {
-      use #(statements, end, tokens) <- result.map(statements([], tokens))
+      use #(statements, end, tokens) <- result.map(statements([], tokens, []))
       #(Some(Block(Span(start, end), statements)), tokens)
     }
 
@@ -1681,6 +1763,7 @@ fn case_clauses(
   clauses: List(Clause),
   tokens: Tokens,
 ) -> Result(#(List(Clause), Tokens, Int), Error) {
+  use #(comments_normal, tokens) <- result.try(comments_normal_([], tokens))
   use #(clause, tokens) <- result.try(case_clause(tokens))
   let clauses = [clause, ..clauses]
   case tokens {
@@ -1741,7 +1824,7 @@ fn fn_(
 
   // The function body
   use _, tokens <- expect(t.LeftBrace, tokens)
-  use #(body, end, tokens) <- result.try(statements([], tokens))
+  use #(body, end, tokens) <- result.try(statements([], tokens, []))
 
   Ok(#(Some(Fn(Span(start, end), parameters, return, body)), tokens))
 }
@@ -1944,11 +2027,21 @@ fn comma_delimited(
   }
 }
 
-pub fn comment_tokens_to_strings(tokens: Tokens) -> List(String) {
+pub fn comment_normal_tokens_to_strings(tokens: Tokens) -> List(String) {
   tokens
   |> list.filter_map(fn(token) {
     case token {
       #(t.CommentNormal(comment), P(_pos)) -> Ok(comment)
+      _ -> Error(Nil)
+    }
+  })
+}
+
+pub fn comment_doc_tokens_to_strings(tokens: Tokens) -> List(String) {
+  tokens
+  |> list.filter_map(fn(token) {
+    case token {
+      #(t.CommentDoc(comment), P(_pos)) -> Ok(comment)
       _ -> Error(Nil)
     }
   })
@@ -1960,6 +2053,7 @@ fn type_definition(
   publicity: Publicity,
   opaque_: Bool,
   comments: Tokens,
+  doc_comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
@@ -1992,6 +2086,7 @@ fn type_definition(
         publicity,
         opaque_,
         comments,
+        doc_comments,
         tokens,
         start,
       )
@@ -2006,7 +2101,8 @@ fn type_definition(
           opaque_,
           parameters,
           [],
-          comment_tokens_to_strings(comments),
+          comment_normal_tokens_to_strings(comments),
+          comment_doc_tokens_to_strings(doc_comments),
         )
       let module = push_custom_type(module, attributes, ct)
       Ok(#(module, tokens))
@@ -2108,6 +2204,7 @@ fn custom_type(
   publicity: Publicity,
   opaque_: Bool,
   comments: Tokens,
+  doc_comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
@@ -2120,7 +2217,8 @@ fn custom_type(
       opaque_,
       parameters,
       [],
-      comment_tokens_to_strings(comments),
+      comment_normal_tokens_to_strings(comments),
+      comment_doc_tokens_to_strings(doc_comments),
     )
   use #(ct, end, tokens) <- result.try(variants(ct, tokens))
   let ct = CustomType(..ct, location: Span(start, end))
@@ -2143,6 +2241,8 @@ fn variants(
   tokens: Tokens,
 ) -> Result(#(CustomType, Int, Tokens), Error) {
   use ct, tokens <- until(t.RightBrace, ct, tokens)
+  use #(comments_normal, tokens) <- result.try(comments_normal_([], tokens))
+  use #(comments_doc, tokens) <- result.try(comments_doc_([], tokens))
   use #(attributes, tokens) <- result.try(attributes([], tokens))
   use name, _, tokens <- expect_upper_name(tokens)
   use #(fields, _, tokens) <- result.try(case tokens {
@@ -2152,8 +2252,42 @@ fn variants(
     }
     _ -> Ok(#([], 0, tokens))
   })
-  let ct = push_variant(ct, Variant(name:, fields:, attributes:))
+  let ct =
+    push_variant(
+      ct,
+      Variant(
+        name:,
+        fields:,
+        attributes:,
+        comments: comments_normal,
+        comments_doc:,
+      ),
+    )
   Ok(#(ct, tokens))
+}
+
+pub fn comments_normal_(
+  acc: List(String),
+  tokens: Tokens,
+) -> Result(#(List(String), Tokens), Error) {
+  case tokens {
+    [#(t.CommentNormal(comment), _), ..tokens] -> {
+      comments_normal_([comment, ..acc], tokens)
+    }
+    _ -> Ok(#(list.reverse(acc), tokens))
+  }
+}
+
+pub fn comments_doc_(
+  acc: List(String),
+  tokens: Tokens,
+) -> Result(#(List(String), Tokens), Error) {
+  case tokens {
+    [#(t.CommentDoc(comment), _), ..tokens] -> {
+      comments_doc_([comment, ..acc], tokens)
+    }
+    _ -> Ok(#(list.reverse(acc), tokens))
+  }
 }
 
 fn attributes(

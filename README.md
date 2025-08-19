@@ -35,9 +35,13 @@ import glance
 import gleam/io
 
 const code = "
+  /// Cardinal is a type
+
   // hey it's a comment
+  /// doc comment in the middle
   // another line
   pub type Cardinal {
+    // this a comment for the North variant
     North
     East
     South
@@ -62,14 +66,18 @@ This program print this to the console:
       publicity: Public,
       parameters: [],
       variants: [
-        Variant("North", []),
-        Variant("East", []),
-        Variant("South", []),
-        Variant("West", []),
+        Variant("North", [], [], [" this a comment for the North variant"]),
+        Variant("East", [], [], []),
+        Variant("South", [], [], []),
+        Variant("West", [], [], []),
       ],
       comments: [
         " hey it's a comment",
         " another line asht"
+      ],
+      comments_doc: [
+        " Cardinal is a type"
+        " doc comment in the middle",
       ]
     ),
   ),

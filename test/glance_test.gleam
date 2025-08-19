@@ -134,7 +134,7 @@ pub fn parse_self_test() {
 pub fn empty_test() {
   ""
   |> glance.module
-  |> should.equal(Ok(glance.Module([], [], [], [], [])))
+  |> should.equal(Ok(glance.Module([], [], [], [], [], [])))
 }
 
 pub fn public_enum_test() {
@@ -256,6 +256,68 @@ pub fn comment_discarding_test() {
   }"
   |> to_snapshot
   |> birdie.snap(title: "comment_discarding")
+}
+
+pub fn comments_inbetween_type_decaration_test() {
+  "pub
+  // comment
+  type
+  // comment
+  T{
+  }"
+  |> to_snapshot
+  |> birdie.snap(title: "comments_inbetween_type_decaration")
+}
+
+pub fn comments_for_generic_type_test() {
+  "pub type T(
+    // this is k
+    k,
+    // this is v,
+    v
+  ) {
+  }"
+  |> to_snapshot
+  |> birdie.snap(title: "comment_for_generic_type_test")
+}
+
+pub fn comments_order_test() {
+  "
+  //// module comment 1
+  //// module comment 2
+
+  // regular comment 1
+  /// doc comment 1
+  // regular comment 2
+  /// doc comment 2
+  // regular comment 3
+  /// doc comment 3
+
+  pub type T{}
+
+  //// module comment 3
+  "
+  |> to_snapshot
+  |> birdie.snap(title: "comments_order_test")
+}
+
+pub fn comments_extra_test() {
+  "
+  /// Cardinal is a type
+
+  // hey it's a comment
+  /// doc comment in the middle
+  // another line
+  pub type Cardinal {
+    // this a comment for the North variant
+    North
+    East
+    South
+    West
+  }
+"
+  |> to_snapshot
+  |> birdie.snap(title: "comments_extra")
 }
 
 pub fn alias_variable_test() {
@@ -1017,7 +1079,7 @@ pub fn discard_list_rest_test() {
 }
 
 pub fn comments_test() {
-  "/// Module comment
+  "//// Module comment
 
 // Comment
 

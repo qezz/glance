@@ -1,12 +1,21 @@
 ---
 version: 1.2.7
-title: private_enum
-file: ./test/glance_test.gleam
-test_name: private_enum_test
+title: comments_extra
 ---
-type Cardinal {
-    North East South West
+
+  /// Cardinal is a type
+
+  // hey it's a comment
+  /// doc comment in the middle
+  // another line
+  pub type Cardinal {
+    // this a comment for the North variant
+    North
+    East
+    South
+    West
   }
+
 
 ---------------------------
 
@@ -16,9 +25,9 @@ Module(
     Definition(
       [],
       CustomType(
-        Span(0, 45),
+        Span(103, 208),
         "Cardinal",
-        Private,
+        Public,
         False,
         [],
         [
@@ -26,7 +35,9 @@ Module(
             "North",
             [],
             [],
-            [],
+            [
+              " this a comment for the North variant",
+            ],
             [],
           ),
           Variant(
@@ -51,8 +62,14 @@ Module(
             [],
           ),
         ],
-        [],
-        [],
+        [
+          " hey it's a comment",
+          " another line",
+        ],
+        [
+          " Cardinal is a type",
+          " doc comment in the middle",
+        ],
       ),
     ),
   ],
