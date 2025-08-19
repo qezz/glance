@@ -29,7 +29,10 @@ gleam add glance
 ```
 
 > [!IMPORTANT]
-> Since it's a fork, use path to the git repo directly.
+> Since it's a fork, use path to the git repo directly in your `gleam.toml`
+> ```toml
+> glance = { git = "https://github.com/qezz/glance.git", ref = "..." }
+> ```
 
 Then get parsing!
 
