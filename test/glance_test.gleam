@@ -281,6 +281,26 @@ pub fn comments_for_generic_type_test() {
   |> birdie.snap(title: "comment_for_generic_type_test")
 }
 
+pub fn comments_order_test() {
+  "
+  //// module comment 1
+  //// module comment 2
+
+  // regular comment 1
+  /// doc comment 1
+  // regular comment 2
+  /// doc comment 2
+  // regular comment 3
+  /// doc comment 3
+
+  pub type T{}
+
+  //// module comment 3
+  "
+  |> to_snapshot
+  |> birdie.snap(title: "comments_order_test")
+}
+
 pub fn alias_variable_test() {
   "pub type X = a"
   |> to_snapshot
