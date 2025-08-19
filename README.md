@@ -79,7 +79,7 @@ This program print this to the console:
       ],
       comments: [
         " hey it's a comment",
-        " another line asht"
+        " another line"
       ],
       comments_doc: [
         " Cardinal is a type"
