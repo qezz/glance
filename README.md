@@ -5,6 +5,9 @@
 
 A Gleam source code parser, in Gleam!
 
+> [!IMPORTANT]
+> It's a fork of https://github.com/lpil/glance as of v5
+
 Glance attempts to be permissive with regards to what it will parse and so it is
 able to parse some code that the Gleam compiler will reject as invalid.
 
