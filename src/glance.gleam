@@ -607,7 +607,7 @@ fn slurp(
       )
     }
 
-    [#(t.CommentModule(comment), P(start)), ..tokens] -> {
+    [#(t.CommentModule(comment), P(_start)), ..tokens] -> {
       // Module-level comments are consumed immediatelly, and don't affect
       // the aggregated regular and doc comments.
       let result = module_comment(module, comment, tokens)
