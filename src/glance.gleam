@@ -510,8 +510,8 @@ fn slurp(
           attributes,
           Public,
           False,
-          normal_comments,
-          doc_comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
@@ -526,8 +526,8 @@ fn slurp(
           attributes,
           Public,
           True,
-          normal_comments,
-          doc_comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
@@ -542,8 +542,8 @@ fn slurp(
           attributes,
           Private,
           False,
-          normal_comments,
-          doc_comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           tokens,
           start,
         )
@@ -571,8 +571,8 @@ fn slurp(
           attributes,
           Public,
           name,
-          normal_comments,
-          doc_comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           start,
           tokens,
         )
@@ -588,8 +588,8 @@ fn slurp(
           attributes,
           Private,
           name,
-          normal_comments,
-          doc_comments,
+          list.reverse(normal_comments),
+          list.reverse(doc_comments),
           start,
           tokens,
         )
@@ -604,7 +604,7 @@ fn slurp(
         module,
         [],
         tokens,
-        list.reverse([#(t.CommentNormal(comment), P(start)), ..normal_comments]),
+        [#(t.CommentNormal(comment), P(start)), ..normal_comments],
         doc_comments,
       )
     }
@@ -612,13 +612,10 @@ fn slurp(
     [#(t.CommentDoc(comment), P(start)), ..tokens] -> {
       // Aggregating comments and passing them the next slurp invocation.
       // The comments will be consumed by the first valid definition.
-      slurp(
-        module,
-        [],
-        tokens,
-        normal_comments,
-        list.reverse([#(t.CommentDoc(comment), P(start)), ..doc_comments]),
-      )
+      slurp(module, [], tokens, normal_comments, [
+        #(t.CommentDoc(comment), P(start)),
+        ..doc_comments
+      ])
     }
 
     [#(t.CommentModule(comment), P(_start)), ..tokens] -> {
@@ -629,7 +626,7 @@ fn slurp(
       slurp(module, [], tokens, [], [])
     }
 
-    [] -> Ok(module)
+    [] -> Ok(Module(..module, comments: list.reverse(module.comments)))
     tokens -> {
       unexpected_error(tokens)
     }
