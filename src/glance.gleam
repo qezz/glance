@@ -347,7 +347,6 @@ pub type Error {
 
 pub fn module(src: String) -> Result(Module, Error) {
   glexer.new(src)
-  // |> glexer.discard_comments
   |> glexer.discard_whitespace
   |> glexer.lex
   |> slurp(Module([], [], [], [], [], []), [], _, [])
@@ -485,7 +484,6 @@ fn slurp(
   tokens: Tokens,
   comments: Tokens,
 ) -> Result(Module, Error) {
-  // echo tokens
   case tokens {
     [#(t.At, _), ..tokens] -> {
       use #(attribute, tokens) <- result.try(attribute(tokens))
@@ -619,8 +617,6 @@ fn slurp(
 
     [] -> Ok(module)
     tokens -> {
-      echo tokens
-      // FIXME
       unexpected_error(tokens)
     }
   }
@@ -1301,7 +1297,6 @@ fn expression_unit(
   tokens: Tokens,
   context: ParseExpressionUnitContext,
 ) -> Result(#(Option(Expression), Tokens), Error) {
-  // echo tokens as "early"
   use #(parsed, tokens) <- result.try(case tokens {
     [
       #(t.Name(module), P(start)),
