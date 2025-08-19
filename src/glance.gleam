@@ -349,7 +349,7 @@ pub fn module(src: String) -> Result(Module, Error) {
   glexer.new(src)
   |> glexer.discard_whitespace
   |> glexer.lex
-  |> slurp(Module([], [], [], [], [], []), [], _, [])
+  |> slurp(Module([], [], [], [], [], []), [], _, [], [])
 }
 
 pub fn push_module_comment(module: Module, comment: String) -> Module {
@@ -482,18 +482,25 @@ fn slurp(
   module: Module,
   attributes: List(Attribute),
   tokens: Tokens,
-  comments: Tokens,
+  normal_comments: Tokens,
+  doc_comments: Tokens,
 ) -> Result(Module, Error) {
   case tokens {
     [#(t.At, _), ..tokens] -> {
       use #(attribute, tokens) <- result.try(attribute(tokens))
-      slurp(module, [attribute, ..attributes], tokens, comments)
+      slurp(
+        module,
+        [attribute, ..attributes],
+        tokens,
+        normal_comments,
+        doc_comments,
+      )
     }
 
     [#(t.Import, P(start)), ..tokens] -> {
       let result = import_statement(module, attributes, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, comments)
+      slurp(module, [], tokens, normal_comments, doc_comments)
     }
 
     [#(t.Pub, P(start)), #(t.Type, _), ..tokens] -> {
@@ -503,12 +510,13 @@ fn slurp(
           attributes,
           Public,
           False,
-          comments,
+          normal_comments,
+          doc_comments,
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, P(start)), #(t.Opaque, _), #(t.Type, _), ..tokens] -> {
@@ -518,12 +526,13 @@ fn slurp(
           attributes,
           Public,
           True,
-          comments,
+          normal_comments,
+          doc_comments,
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Type, P(start)), ..tokens] -> {
@@ -533,24 +542,25 @@ fn slurp(
           attributes,
           Private,
           False,
-          comments,
+          normal_comments,
+          doc_comments,
           tokens,
           start,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, P(start)), #(t.Const, _), ..tokens] -> {
       let result = const_definition(module, attributes, Public, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Const, P(start)), ..tokens] -> {
       let result = const_definition(module, attributes, Private, tokens, start)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Pub, start), #(t.Fn, _), #(t.Name(name), _), ..tokens] -> {
@@ -561,12 +571,13 @@ fn slurp(
           attributes,
           Public,
           name,
-          comments,
+          normal_comments,
+          doc_comments,
           start,
           tokens,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.Fn, start), #(t.Name(name), _), ..tokens] -> {
@@ -577,12 +588,13 @@ fn slurp(
           attributes,
           Private,
           name,
-          comments,
+          normal_comments,
+          doc_comments,
           start,
           tokens,
         )
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [#(t.CommentNormal(comment), P(start)), ..tokens] -> {
@@ -592,7 +604,8 @@ fn slurp(
         module,
         [],
         tokens,
-        list.reverse([#(t.CommentNormal(comment), P(start)), ..comments]),
+        list.reverse([#(t.CommentNormal(comment), P(start)), ..normal_comments]),
+        doc_comments,
       )
     }
 
@@ -603,7 +616,8 @@ fn slurp(
         module,
         [],
         tokens,
-        list.reverse([#(t.CommentDoc(comment), P(start)), ..comments]),
+        normal_comments,
+        list.reverse([#(t.CommentDoc(comment), P(start)), ..doc_comments]),
       )
     }
 
@@ -612,7 +626,7 @@ fn slurp(
       // the aggregated regular and doc comments.
       let result = module_comment(module, comment, tokens)
       use #(module, tokens) <- result.try(result)
-      slurp(module, [], tokens, [])
+      slurp(module, [], tokens, [], [])
     }
 
     [] -> Ok(module)
@@ -846,6 +860,7 @@ fn function_definition(
   publicity: Publicity,
   name: String,
   comments: Tokens,
+  doc_comments: Tokens,
   start: Int,
   tokens: Tokens,
 ) -> Result(#(Module, Tokens), Error) {
@@ -875,7 +890,7 @@ fn function_definition(
       return_type,
       body,
       comment_normal_tokens_to_strings(comments),
-      comment_doc_tokens_to_strings(comments),
+      comment_doc_tokens_to_strings(doc_comments),
     )
   let module = push_function(module, attributes, function)
   Ok(#(module, tokens))
@@ -2041,6 +2056,7 @@ fn type_definition(
   publicity: Publicity,
   opaque_: Bool,
   comments: Tokens,
+  doc_comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
@@ -2073,6 +2089,7 @@ fn type_definition(
         publicity,
         opaque_,
         comments,
+        doc_comments,
         tokens,
         start,
       )
@@ -2088,7 +2105,7 @@ fn type_definition(
           parameters,
           [],
           comment_normal_tokens_to_strings(comments),
-          comment_doc_tokens_to_strings(comments),
+          comment_doc_tokens_to_strings(doc_comments),
         )
       let module = push_custom_type(module, attributes, ct)
       Ok(#(module, tokens))
@@ -2190,6 +2207,7 @@ fn custom_type(
   publicity: Publicity,
   opaque_: Bool,
   comments: Tokens,
+  doc_comments: Tokens,
   tokens: Tokens,
   start: Int,
 ) -> Result(#(Module, Tokens), Error) {
@@ -2203,7 +2221,7 @@ fn custom_type(
       parameters,
       [],
       comment_normal_tokens_to_strings(comments),
-      comment_doc_tokens_to_strings(comments),
+      comment_doc_tokens_to_strings(doc_comments),
     )
   use #(ct, end, tokens) <- result.try(variants(ct, tokens))
   let ct = CustomType(..ct, location: Span(start, end))
